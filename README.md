@@ -1,24 +1,16 @@
 # RISC-V 파이프라인 해저드 스터디 (컴퓨터구조 HW1)
 
-> **Forwarding unit이 없는 5-stage 파이프라인**(Ripes 시뮬레이터)에서 GCD 루프의 RAW·control hazard를 찾고, 명령어 재배치(instruction scheduling)만으로 stall을 줄였습니다. **명령어 수는 61개 그대로, 121 → 115 cycles**입니다. 모든 수치는 Ripes **시뮬레이션** 결과이며 실제 CPU 측정이 아닙니다.
+컴퓨터구조론 과제에서 [Ripes](https://github.com/mortbopet/Ripes)의 **Forwarding 없는 5-stage RISC-V 파이프라인**을 분석했습니다. GCD 루프의 독립 명령어를 재배치해 RAW stall을 줄였고, 명령어 61개는 그대로 두면서 실행 사이클을 **121→115**로 낮췄습니다.
 
-| 항목 | 내용 |
-|---|---|
-| 환경 | Ripes, RV32IM, 5-stage pipeline, **forwarding 없음**(hazard detection·stall 있음) |
-| Q1 결과 | **121 → 115 cycles**, retired instructions 61 → 61, CPI 1.98 → 1.89 |
-| Q1 방법 | 루프당 RAW stall 6 → 4 (재배치), 루프 3회 반복 → 6 cycles 감소 |
-| Q2 | selection sort skeleton의 빈칸 3개 작성, load-use 간격 확보 |
-| 근거 | 제출 당시 Ripes stage table·execution info 화면 ([`evidence/`](evidence)) |
+환경은 RV32IM, 5-stage, hazard detection/stall 활성화, forwarding 비활성화입니다. 수치는 실제 CPU가 아닌 **Ripes 시뮬레이션 결과**이고, 제출 당시 실행 화면은 [`evidence/`](evidence)에 있습니다.
 
-> **정정 (2026-10-23):** 이 저장소의 첫 버전은 “forwarding 5-stage, 121 → 118 cycles”로 적혀 있었습니다. 제출 보고서는 forwarding unit이 **없는** 환경을 명시하고, 아래 Ripes 화면은 **121 → 115**를 보여 줍니다. 118은 제출 코드나 Ripes 화면으로 확인되지 않는 값이어서 삭제했습니다.
+## GCD 루프 — 명령어 재배치 (Q1)
 
-## Q1 — GCD 루프의 hazard와 재배치
-
-### 왜 stall이 생기는가
+### Stall 발생 원인
 
 Forwarding이 없으면 앞 명령어의 결과는 WB 단계에서 register file에 써진 뒤에야 다음 명령어의 ID 단계에서 읽힙니다. 이 환경에서 바로 다음 명령어가 그 값을 쓰면 2 cycle, 한 칸 떨어져 있으면 1 cycle을 기다립니다. 루프의 `beq`와 `j`는 분기가 확정되기 전에 가져온 명령어를 버려야 하므로(flush) control hazard를 만듭니다.
 
-### 원본 루프 → 재배치 루프
+### 코드 변경
 
 원본 순서는 [제출 stage table](evidence/q1_original_stage_table.png)에 그대로 보입니다(Ripes는 `mv`를 `addi rd, rs, 0`으로 표시).
 
@@ -40,7 +32,7 @@ loop: beq  a1, t0, done                          loop: beq  a1, t0, done
 - `mv a0, a1`은 `a0`의 마지막 읽기(`sub`) 직후로 옮겨 `sub`–`add` 사이 stall 1개를 채웠습니다.
 - `mul`–`sub` 사이에는 옮길 수 있는 독립 명령어가 없어 2 stall이 남습니다.
 
-### 결과 (Ripes, simulated)
+### 결과
 
 | | Original | Optimized |
 |---|---:|---:|
@@ -53,7 +45,7 @@ GCD(48, 18)에서 루프 본문은 3회 실행되므로 2 stall × 3 = 6 cycles�
 
 근거 화면: [원본 stage table](evidence/q1_original_stage_table.png) · [원본 execution info](evidence/q1_original_execution_info.png) · [재배치 stage table](evidence/q1_optimized_stage_table.png) · [재배치 execution info](evidence/q1_optimized_execution_info.png)
 
-## Q2 — Selection sort 빈칸 작성 ([`q2_selection_sort/solution.s`](q2_selection_sort/solution.s))
+## Selection sort (Q2) ([`q2_selection_sort/solution.s`](q2_selection_sort/solution.s))
 
 바깥/안쪽 루프와 출력 루틴은 수업 제공 skeleton이고, `blank (1)~(3)`이 제가 작성한 부분입니다.
 
@@ -88,6 +80,10 @@ Ripes 버전이나 processor 모델이 다르면 cycle 수가 달라질 수 있�
 ├─ q2_selection_sort/solution.s    # skeleton + blank (1)~(3) 작성분
 └─ evidence/                       # 제출 당시 Ripes 화면 (stage table, execution info, console)
 ```
+
+## 이전 수치 정정
+
+처음 공개한 README에는 "forwarding, 121→118 cycles"라고 잘못 적었습니다. 제출 보고서와 Ripes 화면을 다시 대조해 **forwarding 없음, 121→115 cycles**로 수정했습니다. [근거 화면](evidence/q1_optimized_execution_info.png)과 당시 제출본의 조건을 기준으로 기록합니다.
 
 ---
 
